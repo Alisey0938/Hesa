@@ -20,7 +20,7 @@ class HoloAccountingApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'حسابداری و انبارداری جامع',
+      title: 'حسابداری هلو',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -130,7 +130,7 @@ class DatabaseHelper {
         });
 
         await db.insert('parties', {
-          'name': 'مشتری نمونه (علی محمدی)',
+          'name': 'مشتری نمونه',
           'phone': '09120000000',
           'type': 'customer',
           'balance': 0.0
@@ -139,7 +139,7 @@ class DatabaseHelper {
     );
   }
 
-  Future<List>> getProducts() async {
+  Future<List> getProducts() async {
     final db = await database;
     return await db.query('products', orderBy: 'id DESC');
   }
@@ -154,7 +154,7 @@ class DatabaseHelper {
     return await db.update('products', {'stock_quantity': newQuantity}, where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<List>> getParties() async {
+  Future<List> getParties() async {
     final db = await database;
     return await db.query('parties', orderBy: 'id DESC');
   }
@@ -164,7 +164,7 @@ class DatabaseHelper {
     return await db.insert('parties', row);
   }
 
-  Future<int> createInvoice(String type, String partyName, double total, List> items) async {
+  Future<int> createInvoice(String type, String partyName, double total, List items) async {
     final db = await database;
     int invoiceId = await db.insert('invoices', {
       'invoice_type': type,
@@ -185,7 +185,7 @@ class DatabaseHelper {
 
       int pId = item['product_id'];
       int qty = item['quantity'];
-      List> pList = await db.query('products', where: 'id = ?', whereArgs: [pId]);
+      List pList = await db.query('products', where: 'id = ?', whereArgs: [pId]);
       if (pList.isNotEmpty) {
         int currentStock = (pList.first['stock_quantity'] as num).toInt();
         int newStock = (type == 'sale') ? (currentStock - qty) : (currentStock + qty);
@@ -194,22 +194,22 @@ class DatabaseHelper {
     }
 
     await db.insert('journal_entries', {
-      'title': type == 'sale' ? 'فاکتور فروش شماره $invoiceId' : 'فاکتور خرید شماره $invoiceId',
+      'title': type == 'sale' ? 'فاکتور فروش $invoiceId' : 'فاکتور خرید $invoiceId',
       'debit': type == 'sale' ? total : 0,
       'credit': type == 'sale' ? 0 : total,
-      'description': 'ثبت اتوماتیک فاکتور برای $partyName',
+      'description': 'ثبت اتوماتیک برای $partyName',
       'created_at': DateTime.now().toIso8601String(),
     });
 
     return invoiceId;
   }
 
-  Future<List>> getInvoices() async {
+  Future<List> getInvoices() async {
     final db = await database;
     return await db.query('invoices', orderBy: 'id DESC');
   }
 
-  Future<List>> getJournalEntries() async {
+  Future<List> getJournalEntries() async {
     final db = await database;
     return await db.query('journal_entries', orderBy: 'id DESC');
   }
@@ -271,16 +271,6 @@ class DashboardTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('خلاصه وضعیت کسب و کار', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 15),
-          Row(
-            children: [
-              Expanded(child: _buildCard('فروش کل امروز', '۰ تومان', Colors.green, Icons.arrow_upward)),
-              const SizedBox(width: 10),
-              Expanded(child: _buildCard('خرید کل امروز', '۰ تومان', Colors.red, Icons.arrow_downward)),
-            ],
-          ),
-          const SizedBox(height: 25),
           const Text('دسترسی‌های سریع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 15),
           GridView.count(
@@ -304,27 +294,6 @@ class DashboardTab extends StatelessWidget {
               }),
             ],
           )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCard(String title, String value, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 10),
-          Text(title, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-          const SizedBox(height: 5),
-          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );
@@ -362,7 +331,7 @@ class InventoryTab extends StatefulWidget {
 
 class _InventoryTabState extends State<InventoryTab> {
   final dbHelper = DatabaseHelper();
-  List> _products = [];
+  List _products = [];
 
   @override
   void initState() {
@@ -388,7 +357,7 @@ class _InventoryTabState extends State<InventoryTab> {
                   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.inventory_2)),
-                    title: Text(p['name']),
+                    title: Text(p['name'].toString()),
                     subtitle: Text('کد: ${p['code']} | قیمت فروش: ${p['sell_price']}'),
                     trailing: Text('موجودی: ${p['stock_quantity']}'),
                   ),
@@ -469,7 +438,7 @@ class StocktakingScreen extends StatefulWidget {
 
 class _StocktakingScreenState extends State<StocktakingScreen> {
   final dbHelper = DatabaseHelper();
-  List> _products = [];
+  List _products = [];
 
   @override
   void initState() {
@@ -493,20 +462,18 @@ class _StocktakingScreenState extends State<StocktakingScreen> {
           final textCtrl = TextEditingController(text: p['stock_quantity'].toString());
           return Card(
             child: ListTile(
-              title: Text(p['name']),
-              subtitle: Text('موجودی فعلی: ${p['stock_quantity']}'),
+              title: Text(p['name'].toString()),
+              subtitle: Text('موجودی: ${p['stock_quantity']}'),
               trailing: SizedBox(
                 width: 120,
                 child: Row(
                   children: [
-                    Expanded(
-                      child: TextField(controller: textCtrl, keyboardType: TextInputType.number),
-                    ),
+                    Expanded(child: TextField(controller: textCtrl, keyboardType: TextInputType.number)),
                     IconButton(
                       icon: const Icon(Icons.check, color: Colors.green),
                       onPressed: () async {
-                        int newQty = int.tryParse(textCtrl.text) ?? p['stock_quantity'];
-                        await dbHelper.updateProductStock(p['id'], newQty);
+                        int newQty = int.tryParse(textCtrl.text) ?? (p['stock_quantity'] as num).toInt();
+                        await dbHelper.updateProductStock((p['id'] as num).toInt(), newQty);
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('بروز شد')));
                       },
                     )
@@ -529,7 +496,7 @@ class InvoiceTab extends StatefulWidget {
 }
 
 class _InvoiceTabState extends State<InvoiceTab> {
-  List> _invoices = [];
+  List _invoices = [];
 
   @override
   void initState() {
@@ -581,7 +548,7 @@ class CreateInvoiceScreen extends StatefulWidget {
 
 class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final dbHelper = DatabaseHelper();
-  List> _products = [];
+  List _products = [];
   final Map<int, int> _selectedQuantities = {};
   String _partyName = 'مشتری عمومی';
 
@@ -600,7 +567,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     double total = 0;
     _selectedQuantities.forEach((productId, qty) {
       if (qty > 0) {
-        final p = _products.firstWhere((element) => element['id'] == productId);
+        final p = _products.firstWhere((element) => (element['id'] as num).toInt() == productId);
         double price = (widget.type == 'sale') ? (p['sell_price'] as num).toDouble() : (p['buy_price'] as num).toDouble();
         total += price * qty;
       }
@@ -625,11 +592,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             child: ListView.builder(
               itemCount: _products.length,
               itemBuilder: (context, index) {
-                final p = _products[index];
-                int qty = _selectedQuantities[p['id']] ?? 0;
+                final p = _products.indexMap != null ? _products[index] : _products[index];
+                int pId = (p['id'] as num).toInt();
+                int qty = _selectedQuantities[pId] ?? 0;
                 return Card(
                   child: ListTile(
-                    title: Text(p['name']),
+                    title: Text(p['name'].toString()),
                     subtitle: Text('موجودی: ${p['stock_quantity']}'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -637,13 +605,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                         IconButton(
                           icon: const Icon(Icons.remove),
                           onPressed: () {
-                            if (qty > 0) setState(() => _selectedQuantities[p['id']] = qty - 1);
+                            if (qty > 0) setState(() => _selectedQuantities[pId] = qty - 1);
                           },
                         ),
                         Text('$qty'),
                         IconButton(
                           icon: const Icon(Icons.add),
-                          onPressed: () => setState(() => _selectedQuantities[p['id']] = qty + 1),
+                          onPressed: () => setState(() => _selectedQuantities[pId] = qty + 1),
                         ),
                       ],
                     ),
@@ -656,10 +624,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
               onPressed: () async {
-                List> items = [];
+                List items = [];
                 _selectedQuantities.forEach((pId, qty) {
                   if (qty > 0) {
-                    final p = _products.firstWhere((element) => element['id'] == pId);
+                    final p = _products.firstWhere((element) => (element['id'] as num).toInt() == pId);
                     double price = (widget.type == 'sale') ? (p['sell_price'] as num).toDouble() : (p['buy_price'] as num).toDouble();
                     items.add({
                       'product_id': pId,
@@ -693,7 +661,7 @@ class AccountingTab extends StatefulWidget {
 }
 
 class _AccountingTabState extends State<AccountingTab> {
-  List> _entries = [];
+  List _entries = [];
 
   @override
   void initState() {
@@ -714,8 +682,8 @@ class _AccountingTabState extends State<AccountingTab> {
         final item = _entries[index];
         return Card(
           child: ListTile(
-            title: Text(item['title']),
-            subtitle: Text(item['description'] ?? ''),
+            title: Text(item['title'].toString()),
+            subtitle: Text(item['description']?.toString() ?? ''),
           ),
         );
       },
