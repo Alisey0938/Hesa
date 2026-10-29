@@ -17,6 +17,14 @@ jobs:
           flutter-version: '3.19.x'
           channel: 'stable'
 
+      # ایجاد ساختار استاندارد پروژه فلاتر در همان مخزن
+      - name: Create Flutter Project Structure
+        run: |
+          flutter create . --org com.example --project-name holo_accounting_app --force
+
+      # جایگزین کردن فایل main.dart دلخواه شما (اگر فایل main.dart در ریشه است)
+      # یا اگر فایل main.dart شما همین الان در lib/ است، دستور بالا آن را حفظ می‌کند.
+
       # دریافت پکیج‌ها
       - run: flutter pub get
 
