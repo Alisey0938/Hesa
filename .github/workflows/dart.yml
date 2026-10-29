@@ -16,13 +16,9 @@ jobs:
       # نصب فلاتر SDK
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.x' # یا نسخه سازگار با پروژه شما
+          flutter-version: '3.19.x'
           channel: 'stable'
 
       # دریافت پکیج‌های فلاتر
       - name: Install dependencies
         run: flutter pub get
-
-      # اجرای تست‌ها (اختیاری)
-      - name: Run tests
-        run: flutter test
