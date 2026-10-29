@@ -592,7 +592,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             child: ListView.builder(
               itemCount: _products.length,
               itemBuilder: (context, index) {
-                final p = _products.indexMap != null ? _products[index] : _products[index];
+                final p = _products[index];
                 int pId = (p['id'] as num).toInt();
                 int qty = _selectedQuantities[pId] ?? 0;
                 return Card(
