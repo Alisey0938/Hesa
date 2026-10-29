@@ -4,7 +4,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 const String kApiUrl = 'https://socialmedia-ad.ir/panel.php';
 
@@ -41,9 +40,6 @@ class HoloAccountingApp extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// DATABASE HELPER (Local SQLite)
-// ============================================================================
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
@@ -65,7 +61,6 @@ class DatabaseHelper {
       path,
       version: 1,
       onCreate: (db, version) async {
-        // ۱. جدول کالاها
         await db.execute('''
           CREATE TABLE products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,29 +75,26 @@ class DatabaseHelper {
           )
         ''');
 
-        // ۲. جدول اشخاص (طرف حساب)
         await db.execute('''
           CREATE TABLE parties (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             phone TEXT,
-            type TEXT, -- customer / supplier
+            type TEXT,
             balance REAL DEFAULT 0.0
           )
         ''');
 
-        // ۳. جدول فاکتورها
         await db.execute('''
           CREATE TABLE invoices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            invoice_type TEXT, -- sale / purchase / return_sale / return_purchase
+            invoice_type TEXT,
             party_name TEXT,
             total_amount REAL,
             created_at TEXT
           )
         ''');
 
-        // ۴. جدول اقلام فاکتور
         await db.execute('''
           CREATE TABLE invoice_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,7 +107,6 @@ class DatabaseHelper {
           )
         ''');
 
-        // ۵. جدول اسناد حسابداری (معین / دفتر روزنامه)
         await db.execute('''
           CREATE TABLE journal_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,7 +118,6 @@ class DatabaseHelper {
           )
         ''');
 
-        // داده‌های اولیه نمونه
         await db.insert('products', {
           'name': 'کالای نمونه ۱',
           'code': '1001',
@@ -193,18 +183,16 @@ class DatabaseHelper {
         'total_price': item['total_price'],
       });
 
-      // به روزرسانی موجودی انبار
       int pId = item['product_id'];
       int qty = item['quantity'];
-      List pList = await db.query('products', where: 'id = ?', whereArgs: [pId]);
+      List> pList = await db.query('products', where: 'id = ?', whereArgs: [pId]);
       if (pList.isNotEmpty) {
-        int currentStock = pList.first['stock_quantity'];
+        int currentStock = (pList.first['stock_quantity'] as num).toInt();
         int newStock = (type == 'sale') ? (currentStock - qty) : (currentStock + qty);
         await db.update('products', {'stock_quantity': newStock}, where: 'id = ?', whereArgs: [pId]);
       }
     }
 
-    // ثبت سند روزنامه اتوماتیک
     await db.insert('journal_entries', {
       'title': type == 'sale' ? 'فاکتور فروش شماره $invoiceId' : 'فاکتور خرید شماره $invoiceId',
       'debit': type == 'sale' ? total : 0,
@@ -227,9 +215,6 @@ class DatabaseHelper {
   }
 }
 
-// ============================================================================
-// MAIN HOME SCREEN WITH BOTTOM NAVIGATION
-// ============================================================================
 class MainHomeScreen extends StatefulWidget {
   const MainHomeScreen({Key? key}) : super(key: key);
 
@@ -240,21 +225,20 @@ class MainHomeScreen extends StatefulWidget {
 class _MainHomeScreenState extends State<MainHomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const DashboardTab(),
-    const InventoryTab(),
-    const InvoiceTab(),
-    const AccountingTab(),
-    const CloudSyncTab(),
+  final List<Widget> _screens = const [
+    DashboardTab(),
+    InventoryTab(),
+    InvoiceTab(),
+    AccountingTab(),
+    CloudSyncTab(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('حسابداری و انبارداری هلو (همه‌کاره)', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('حسابداری و انبارداری هلو', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
-        elevation: 2,
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
       ),
@@ -277,9 +261,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 }
 
-// ============================================================================
-// TAB 1: DASHBOARD
-// ============================================================================
 class DashboardTab extends StatelessWidget {
   const DashboardTab({Key? key}) : super(key: key);
 
@@ -299,14 +280,6 @@ class DashboardTab extends StatelessWidget {
               Expanded(child: _buildCard('خرید کل امروز', '۰ تومان', Colors.red, Icons.arrow_downward)),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _buildCard('تعداد کالاها', 'فعال', Colors.blue, Icons.inventory)),
-              const SizedBox(width: 10),
-              Expanded(child: _buildCard('هشدار کمبود انبار', '۰ کالا', Colors.orange, Icons.warning)),
-            ],
-          ),
           const SizedBox(height: 25),
           const Text('دسترسی‌های سریع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 15),
@@ -317,16 +290,16 @@ class DashboardTab extends StatelessWidget {
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
             children: [
-              _buildQuickAction(context, 'فاکتور فروش جدید', Icons.add_shopping_cart, Colors.teal, () {
+              _buildQuickAction(context, 'فاکتور فروش', Icons.add_shopping_cart, Colors.teal, () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateInvoiceScreen(type: 'sale')));
               }),
-              _buildQuickAction(context, 'فاکتور خرید جدید', Icons.add_business, Colors.indigo, () {
+              _buildQuickAction(context, 'فاکتور خرید', Icons.add_business, Colors.indigo, () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateInvoiceScreen(type: 'purchase')));
               }),
-              _buildQuickAction(context, 'تعریف کالا جدید', Icons.add_box, Colors.purple, () {
+              _buildQuickAction(context, 'تعریف کالا', Icons.add_box, Colors.purple, () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
               }),
-              _buildQuickAction(context, 'انبارگردانی فوری', Icons.fact_check, Colors.deepOrange, () {
+              _buildQuickAction(context, 'انبارگردانی', Icons.fact_check, Colors.deepOrange, () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const StocktakingScreen()));
               }),
             ],
@@ -380,9 +353,6 @@ class DashboardTab extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// TAB 2: INVENTORY & STOCKTAKING
-// ============================================================================
 class InventoryTab extends StatefulWidget {
   const InventoryTab({Key? key}) : super(key: key);
 
@@ -402,9 +372,7 @@ class _InventoryTabState extends State<InventoryTab> {
 
   void _loadProducts() async {
     final list = await dbHelper.getProducts();
-    setState(() {
-      _products = list;
-    });
+    setState(() => _products = list);
   }
 
   @override
@@ -416,53 +384,24 @@ class _InventoryTabState extends State<InventoryTab> {
               itemCount: _products.length,
               itemBuilder: (context, index) {
                 final p = _products[index];
-                final isLowStock = p['stock_quantity'] <= p['min_stock'];
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: isLowStock ? Colors.red.shade100 : Colors.indigo.shade100,
-                      child: Icon(Icons.inventory_2, color: isLowStock ? Colors.red : Colors.indigo),
-                    ),
-                    title: Text(p['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('کد: ${p['code']} | قیمت فروش: ${p['sell_price']} تومان'),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('موجودی: ${p['stock_quantity']}', style: TextStyle(fontWeight: FontWeight.bold, color: isLowStock ? Colors.red : Colors.black)),
-                        if (isLowStock) const Text('هشدار کمبود', style: TextStyle(color: Colors.red, fontSize: 10)),
-                      ],
-                    ),
+                    leading: const CircleAvatar(child: Icon(Icons.inventory_2)),
+                    title: Text(p['name']),
+                    subtitle: Text('کد: ${p['code']} | قیمت فروش: ${p['sell_price']}'),
+                    trailing: Text('موجودی: ${p['stock_quantity']}'),
                   ),
                 );
               },
             ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'btn1',
-            onPressed: () async {
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const StocktakingScreen()));
-              _loadProducts();
-            },
-            label: const Text('انبارگردانی'),
-            icon: const Icon(Icons.fact_check),
-            backgroundColor: Colors.orange,
-          ),
-          const SizedBox(height: 10),
-          FloatingActionButton.extended(
-            heroTag: 'btn2',
-            onPressed: () async {
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
-              _loadProducts();
-            },
-            label: const Text('کالای جدید'),
-            icon: const Icon(Icons.add),
-            backgroundColor: Colors.indigo,
-          ),
-        ],
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
+          _loadProducts();
+        },
+        label: const Text('کالای جدید'),
+        icon: const Icon(Icons.add),
       ),
     );
   }
@@ -491,9 +430,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
         child: ListView(
           children: [
             TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'نام کالا')),
-            TextField(controller: _codeController, decoration: const InputDecoration(labelText: 'کد کالا / بارکد')),
-            TextField(controller: _buyPriceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'قیمت خرید (تومان)')),
-            TextField(controller: _sellPriceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'قیمت فروش (تومان)')),
+            TextField(controller: _codeController, decoration: const InputDecoration(labelText: 'کد کالا')),
+            TextField(controller: _buyPriceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'قیمت خرید')),
+            TextField(controller: _sellPriceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'قیمت فروش')),
             TextField(controller: _stockController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'موجودی اولیه')),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -512,7 +451,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   Navigator.pop(context);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
               child: const Text('ذخیره کالا'),
             )
           ],
@@ -547,34 +485,29 @@ class _StocktakingScreenState extends State<StocktakingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('انبارگردانی و مغایرت‌گیری')),
+      appBar: AppBar(title: const Text('انبارگردانی')),
       body: ListView.builder(
         itemCount: _products.length,
         itemBuilder: (context, index) {
           final p = _products[index];
           final textCtrl = TextEditingController(text: p['stock_quantity'].toString());
           return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: ListTile(
               title: Text(p['name']),
-              subtitle: Text('موجودی سیستم: ${p['stock_quantity']}'),
+              subtitle: Text('موجودی فعلی: ${p['stock_quantity']}'),
               trailing: SizedBox(
                 width: 120,
                 child: Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: textCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'واقعی'),
-                      ),
+                      child: TextField(controller: textCtrl, keyboardType: TextInputType.number),
                     ),
                     IconButton(
                       icon: const Icon(Icons.check, color: Colors.green),
                       onPressed: () async {
                         int newQty = int.tryParse(textCtrl.text) ?? p['stock_quantity'];
                         await dbHelper.updateProductStock(p['id'], newQty);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('موجودی جدید به‌روز شد')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('بروز شد')));
                       },
                     )
                   ],
@@ -588,9 +521,6 @@ class _StocktakingScreenState extends State<StocktakingScreen> {
   }
 }
 
-// ============================================================================
-// TAB 3: INVOICES & SALES
-// ============================================================================
 class InvoiceTab extends StatefulWidget {
   const InvoiceTab({Key? key}) : super(key: key);
 
@@ -616,22 +546,15 @@ class _InvoiceTabState extends State<InvoiceTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _invoices.isEmpty
-          ? const Center(child: Text('هیچ فاکتوری ثبت نشده است'))
+          ? const Center(child: Text('فاکتوری ثبت نشده است'))
           : ListView.builder(
               itemCount: _invoices.length,
               itemBuilder: (context, index) {
                 final inv = _invoices[index];
-                final isSale = inv['invoice_type'] == 'sale';
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: isSale ? Colors.green.shade100 : Colors.blue.shade100,
-                      child: Icon(isSale ? Icons.arrow_upward : Icons.arrow_downward, color: isSale ? Colors.green : Colors.blue),
-                    ),
-                    title: Text('${isSale ? "فاکتور فروش" : "فاکتور خرید"} - ${inv['party_name']}'),
-                    subtitle: Text('تاریخ: ${inv['created_at'].toString().split('T')[0]}'),
-                    trailing: Text('${inv['total_amount']} تومان', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    title: Text('${inv['invoice_type']} - ${inv['party_name']}'),
+                    trailing: Text('${inv['total_amount']} تومان'),
                   ),
                 );
               },
@@ -641,16 +564,15 @@ class _InvoiceTabState extends State<InvoiceTab> {
           await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateInvoiceScreen(type: 'sale')));
           _loadInvoices();
         },
-        label: const Text('صدور فاکتور جدید'),
-        icon: const Icon(Icons.add_shopping_cart),
-        backgroundColor: Colors.teal,
+        label: const Text('فاکتور جدید'),
+        icon: const Icon(Icons.add),
       ),
     );
   }
 }
 
 class CreateInvoiceScreen extends StatefulWidget {
-  final String type; // sale / purchase
+  final String type;
   const CreateInvoiceScreen({Key? key, required this.type}) : super(key: key);
 
   @override
@@ -660,7 +582,7 @@ class CreateInvoiceScreen extends StatefulWidget {
 class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final dbHelper = DatabaseHelper();
   List> _products = [];
-  Map<int, int> _selectedQuantities = {};
+  final Map<int, int> _selectedQuantities = {};
   String _partyName = 'مشتری عمومی';
 
   @override
@@ -679,7 +601,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     _selectedQuantities.forEach((productId, qty) {
       if (qty > 0) {
         final p = _products.firstWhere((element) => element['id'] == productId);
-        double price = (widget.type == 'sale') ? p['sell_price'] : p['buy_price'];
+        double price = (widget.type == 'sale') ? (p['sell_price'] as num).toDouble() : (p['buy_price'] as num).toDouble();
         total += price * qty;
       }
     });
@@ -689,47 +611,39 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.type == 'sale' ? 'صدور فاکتور فروش' : 'صدور فاکتور خرید')),
+      appBar: AppBar(title: Text(widget.type == 'sale' ? 'فاکتور فروش' : 'فاکتور خرید')),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
-              decoration: const InputDecoration(labelText: 'نام طرف حساب / مشتری', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'نام مشتری'),
               onChanged: (v) => _partyName = v,
             ),
           ),
-          const Divider(),
           Expanded(
             child: ListView.builder(
               itemCount: _products.length,
               itemBuilder: (context, index) {
                 final p = _products[index];
                 int qty = _selectedQuantities[p['id']] ?? 0;
-                double price = (widget.type == 'sale') ? p['sell_price'] : p['buy_price'];
-
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: ListTile(
                     title: Text(p['name']),
-                    subtitle: Text('قیمت واحد: $price | موجودی فعلی: ${p['stock_quantity']}'),
+                    subtitle: Text('موجودی: ${p['stock_quantity']}'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                          icon: const Icon(Icons.remove),
                           onPressed: () {
-                            if (qty > 0) {
-                              setState(() => _selectedQuantities[p['id']] = qty - 1);
-                            }
+                            if (qty > 0) setState(() => _selectedQuantities[p['id']] = qty - 1);
                           },
                         ),
-                        Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('$qty'),
                         IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                          onPressed: () {
-                            setState(() => _selectedQuantities[p['id']] = qty + 1);
-                          },
+                          icon: const Icon(Icons.add),
+                          onPressed: () => setState(() => _selectedQuantities[p['id']] = qty + 1),
                         ),
                       ],
                     ),
@@ -738,39 +652,31 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               },
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('جمع کل: ${_calculateTotal()} تومان', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ElevatedButton(
-                  onPressed: () async {
-                    List> items = [];
-                    _selectedQuantities.forEach((pId, qty) {
-                      if (qty > 0) {
-                        final p = _products.firstWhere((element) => element['id'] == pId);
-                        double price = (widget.type == 'sale') ? p['sell_price'] : p['buy_price'];
-                        items.add({
-                          'product_id': pId,
-                          'product_name': p['name'],
-                          'quantity': qty,
-                          'unit_price': price,
-                          'total_price': price * qty,
-                        });
-                      }
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: () async {
+                List> items = [];
+                _selectedQuantities.forEach((pId, qty) {
+                  if (qty > 0) {
+                    final p = _products.firstWhere((element) => element['id'] == pId);
+                    double price = (widget.type == 'sale') ? (p['sell_price'] as num).toDouble() : (p['buy_price'] as num).toDouble();
+                    items.add({
+                      'product_id': pId,
+                      'product_name': p['name'],
+                      'quantity': qty,
+                      'unit_price': price,
+                      'total_price': price * qty,
                     });
+                  }
+                });
 
-                    if (items.isNotEmpty) {
-                      await dbHelper.createInvoice(widget.type, _partyName, _calculateTotal(), items);
-                      Navigator.pop(context);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-                  child: const Text('ثبت و صدور فاکتور'),
-                )
-              ],
+                if (items.isNotEmpty) {
+                  await dbHelper.createInvoice(widget.type, _partyName, _calculateTotal(), items);
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('ثبت نهایی فاکتور'),
             ),
           )
         ],
@@ -779,9 +685,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 }
 
-// ============================================================================
-// TAB 4: ACCOUNTING & JOURNAL ENTRIES
-// ============================================================================
 class AccountingTab extends StatefulWidget {
   const AccountingTab({Key? key}) : super(key: key);
 
@@ -805,37 +708,21 @@ class _AccountingTabState extends State<AccountingTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _entries.isEmpty
-          ? const Center(child: Text('دفتر روزنامه خالی است'))
-          : ListView.builder(
-              itemCount: _entries.length,
-              itemBuilder: (context, index) {
-                final item = _entries[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: ListTile(
-                    title: Text(item['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(item['description'] ?? ''),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('بدهکار: ${item['debit']}', style: const TextStyle(color: Colors.green, fontSize: 12)),
-                        Text('بستانکار: ${item['credit']}', style: const TextStyle(color: Colors.red, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+    return ListView.builder(
+      itemCount: _entries.length,
+      itemBuilder: (context, index) {
+        final item = _entries[index];
+        return Card(
+          child: ListTile(
+            title: Text(item['title']),
+            subtitle: Text(item['description'] ?? ''),
+          ),
+        );
+      },
     );
   }
 }
 
-// ============================================================================
-// TAB 5: BACKUP & CLOUD SYNC
-// ============================================================================
 class CloudSyncTab extends StatefulWidget {
   const CloudSyncTab({Key? key}) : super(key: key);
 
@@ -852,7 +739,7 @@ class _CloudSyncTabState extends State<CloudSyncTab> {
   Future<void> _performBackup() async {
     setState(() {
       _isLoading = true;
-      _statusMessage = 'در حال تهیه نسخه پشتیبان...';
+      _statusMessage = 'در حال ارسال بکاپ...';
     });
 
     try {
@@ -879,12 +766,12 @@ class _CloudSyncTabState extends State<CloudSyncTab> {
 
       final resJson = jsonDecode(response.body);
       if (resJson['status'] == 'success') {
-        setState(() => _statusMessage = 'پشتیبان‌گیری ابری با موفقیت انجام شد!');
+        setState(() => _statusMessage = 'بکاپ با موفقیت در سرور ذخیره شد!');
       } else {
         setState(() => _statusMessage = 'خطا: ${resJson['message']}');
       }
     } catch (e) {
-      setState(() => _statusMessage = 'خطا در ارتباط با سرور: $e');
+      setState(() => _statusMessage = 'خطا در ارتباط: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -897,30 +784,16 @@ class _CloudSyncTabState extends State<CloudSyncTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('اتصال به حساب کاربری و پشتیبان‌گیری', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 15),
-          TextField(controller: _usernameCtrl, decoration: const InputDecoration(labelText: 'نام کاربری', border: OutlineInputBorder())),
+          TextField(controller: _usernameCtrl, decoration: const InputDecoration(labelText: 'نام کاربری')),
           const SizedBox(height: 10),
-          TextField(controller: _passwordCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'کلمه عبور', border: OutlineInputBorder())),
+          TextField(controller: _passwordCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'رمز عبور')),
           const SizedBox(height: 20),
-          ElevatedButton.icon(
+          ElevatedButton(
             onPressed: _isLoading ? null : _performBackup,
-            icon: const Icon(Icons.cloud_upload),
-            label: const Text('ارسال بکاپ به سرور مرکز (socialmedia-ad.ir)'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
-            ),
+            child: const Text('ارسال پشتیبان به سرور ابری'),
           ),
           const SizedBox(height: 20),
-          if (_isLoading) const Center(child: CircularProgressIndicator()),
-          if (_statusMessage.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.indigo.shade50, borderRadius: BorderRadius.circular(8)),
-              child: Text(_statusMessage, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
-            ),
+          Text(_statusMessage, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );
