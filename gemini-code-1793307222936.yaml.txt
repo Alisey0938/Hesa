@@ -1,0 +1,27 @@
+name: holo_accounting_app
+description: "Comprehensive Offline-First Accounting, Inventory, and Stocktaking App"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  intl: ^0.18.1
+  provider: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
