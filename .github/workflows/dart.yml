@@ -1,9 +1,7 @@
-name: Build Flutter App
+name: Build Flutter APK
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
     branches: [ main ]
 
 jobs:
@@ -19,6 +17,14 @@ jobs:
           flutter-version: '3.19.x'
           channel: 'stable'
 
-      # دریافت پکیج‌های فلاتر
-      - name: Install dependencies
-        run: flutter pub get
+      # دریافت پکیج‌ها
+      - run: flutter pub get
+
+      # ساخت فایل APK اندروید
+      - run: flutter build apk --release
+
+      # آپلود فایل APK به عنوان خروجی گیت‌هاب
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: build/app/outputs/flutter-apk/app-release.apk
